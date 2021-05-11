@@ -56,11 +56,16 @@ void MainWindow::onUpdatedStatus() {
     const auto s          = p_rb->get_robot_status();
     const RobotStatus &rs = s.second;
 
+    ui->logInBt->setText(s.first ? "log out" : "log in");
+    ui->powerOnBt->setText(rs.powered_on ? "power off" : "power on");
+    ui->enableBt->setText(rs.enabled ? "disable" : "enable");
+
     if (s.first) {
         ui->powerOnBt->setEnabled(true);
     } else {
         ui->powerOnBt->setEnabled(false);
         ui->enableBt->setEnabled(false);
+        return;
     }
     if (rs.powered_on) {
         ui->enableBt->setEnabled(true);
@@ -68,25 +73,21 @@ void MainWindow::onUpdatedStatus() {
         ui->enableBt->setEnabled(false);
     }
 
-    ui->logInBt->setText(s.first ? "log out" : "log in");
-    ui->powerOnBt->setText(rs.powered_on ? "power off" : "power on");
-    ui->enableBt->setText(rs.enabled ? "disable" : "enable");
-    if (s.first) {
-        ui->errorCode->setText(QString::number(rs.errcode));
-        ui->inpos->setText(rs.inpos == 0 ? "No" : "Yes");
-        ui->dragStatus->setText(rs.drag_status == 0 ? "No" : "Yes");
-        ui->emergencyStop->setText(rs.emergency_stop == 0 ? "No" : "Yes");
-        ui->socket->setText(rs.is_socket_connect == 0 ? "Error" : "Ok");
-        ui->powerOn->setText(rs.powered_on == 0 ? "No" : "Yes");
-        ui->enabled->setText(rs.enabled == 0 ? "No" : "Yes");
-        ui->rap->setText(QString::number(rs.rapidrate, 'f', 2));
-        ui->protectiveStop->setText(rs.protective_stop == 0 ? "No" : "Yes");
-        ui->onSoftLimit->setText(rs.on_soft_limit == 0 ? "No" : "Yes");
+    ui->errorCode->setText(QString::number(rs.errcode));
+    ui->inpos->setText(rs.inpos == 0 ? "No" : "Yes");
+    ui->dragStatus->setText(rs.drag_status == 0 ? "No" : "Yes");
+    ui->emergencyStop->setText(rs.emergency_stop == 0 ? "No" : "Yes");
+    ui->socket->setText(rs.is_socket_connect == 0 ? "Error" : "Ok");
+    ui->powerOn->setText(rs.powered_on == 0 ? "No" : "Yes");
+    ui->enabled->setText(rs.enabled == 0 ? "No" : "Yes");
+    ui->rap->setText(QString::number(rs.rapidrate, 'f', 2));
+    ui->protectiveStop->setText(rs.protective_stop == 0 ? "No" : "Yes");
+    ui->onSoftLimit->setText(rs.on_soft_limit == 0 ? "No" : "Yes");
 
-        ui->scbMajor->setText(QString::number(rs.robot_monitor_data.scbMajorVersion, 'f', 2));
-        ui->scbMinor->setText(QString::number(rs.robot_monitor_data.scbMinorVersion, 'f', 2));
-    }
-    if (s.first && rs.powered_on) {
+    ui->scbMajor->setText(QString::number(rs.robot_monitor_data.scbMajorVersion, 'f', 2));
+    ui->scbMinor->setText(QString::number(rs.robot_monitor_data.scbMinorVersion, 'f', 2));
+
+    if (rs.powered_on) {
         ui->scbTemp->setText(QString::number(rs.robot_monitor_data.cabTemperature, 'f', 2));
         ui->avgA->setText(QString::number(rs.robot_monitor_data.robotAverageCurrent, 'f', 2));
         ui->avgP->setText(QString::number(rs.robot_monitor_data.robotAveragePower, 'f', 2));
