@@ -27,6 +27,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets REQUIRED)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 set(Jaka_DIR "/home/msi/Opt/jaka_sdk")
 find_package(Jaka REQUIRED)
 include_directories(${Jaka_INCLUDE_DIRS})
@@ -56,7 +59,7 @@ else()
     endif()
 endif()
 
-target_link_libraries(jaka_gui PRIVATE Qt${QT_VERSION_MAJOR}::Widgets ${Jaka_LIBRARIES})
+target_link_libraries(jaka_gui PRIVATE Qt${QT_VERSION_MAJOR}::Widgets ${Jaka_LIBRARIES} Threads::Threads)
 
 set_target_properties(jaka_gui PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com

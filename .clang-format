@@ -19,10 +19,10 @@ IndentWidth: 4
 UseTab: Never
 
 # 单句是否写成单行, If true, 'if (a) return;' can be put on a single line.
-AllowShortIfStatementsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: true
 
 # 宽度限制
-ColumnLimit: 90
+ColumnLimit: 120
 
 # 最大空行, 包含于Google模板内
 # MaxEmptyLinesToKeep: 1
