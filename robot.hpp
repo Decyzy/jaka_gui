@@ -32,12 +32,11 @@ class AbstractRobot : public QObject {
 
    public:
     AbstractRobot() {
+        m_robotStatus            = {0};
         m_robotStatus.powered_on = false;
-        m_robotStatus.enabled                                                = false;
-        m_robotStatus.robot_monitor_data.jointMonitorData[1].instTemperature = 0;
-        m_robotStatus.robot_monitor_data.scbMinorVersion                     = 0;
-
+        m_robotStatus.enabled    = false;
         m_willTerminate.exchange(false);
+
         m_t = std::thread([&]() {
             while (!m_willTerminate.load()) {
                 std::function<void(void)> func;
