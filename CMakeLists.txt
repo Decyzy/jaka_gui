@@ -30,10 +30,10 @@ find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-if (UNIX)
-    set(Jaka_DIR "/home/msi/Opt/jaka_sdk")
-elseif (APPLE)
+if (APPLE)
     set(Jaka_DIR "/Users/yzy/Documents/iWork/2012-毕设/Projects/QtProjects/jaka_sdk/")
+elseif (UNIX)
+    set(Jaka_DIR "/home/msi/Opt/jaka_sdk")
 endif()
 
 find_package(Jaka REQUIRED)
