@@ -4,63 +4,65 @@
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
-    if (ui->isFakecheckBox->isChecked()) {
-        p_rb = &virtualRobot;
-    } else {
-        p_rb = &abstractRobot;
-    }
-    connect(p_rb, &AbstractRobot::statusUpdatedSignal, this, &MainWindow::onUpdatedStatus);
+    connect(&robotManager, &RobotManager::statusUpdatedSignal, this, &MainWindow::onUpdatedStatus);
+    connect(&robotManager, &RobotManager::busySignal, this, &MainWindow::onBusy);
 }
 
 MainWindow::~MainWindow() {
-    p_rb = nullptr;
     delete ui;
 }
 
 void MainWindow::on_logInBt_clicked() {
-    const auto s = p_rb->get_robot_status();
-    if (!s.first) {
+    const auto s = robotManager.getStatus();
+    if (!s.isLogin) {
         ui->logInBt->setText("log in...");
-        p_rb->login_in(ui->ipLineEdit->text().toStdString().c_str());
+        ui->logInBt->setEnabled(false);
+        robotManager.login_in(ui->ipLineEdit->text().toStdString().c_str());
     } else {
         ui->logInBt->setText("log out...");
-        p_rb->login_out();
+        ui->logInBt->setEnabled(false);
+        robotManager.login_out();
     }
 }
 
 void MainWindow::on_powerOnBt_clicked() {
-    const auto s = p_rb->get_robot_status();
-    if (!s.second.powered_on) {
+    const auto s = robotManager.getStatus();
+    if (!s.status.powered_on) {
         ui->powerOnBt->setText("power on...");
-        p_rb->power_on();
+        ui->powerOnBt->setEnabled(false);
+        robotManager.power_on();
     } else {
         ui->powerOnBt->setText("power off...");
-        p_rb->power_off();
+        ui->powerOnBt->setEnabled(false);
+        robotManager.power_off();
     }
 }
 
 void MainWindow::on_enableBt_clicked() {
-    const auto s = p_rb->get_robot_status();
-    if (!s.second.enabled) {
+    const auto s = robotManager.getStatus();
+    if (!s.status.enabled) {
         ui->enableBt->setText("enable...");
-        p_rb->enable_robot();
+        ui->enableBt->setEnabled(false);
+        robotManager.enable_robot();
 
     } else {
         ui->enableBt->setText("disable...");
-        p_rb->disable_robot();
+        ui->enableBt->setEnabled(false);
+        robotManager.disable_robot();
     }
 }
 
 void MainWindow::onUpdatedStatus() {
     qDebug() << "[slot] on_updated_status";
-    const auto s          = p_rb->get_robot_status();
-    const RobotStatus &rs = s.second;
+    const auto s          = robotManager.getStatus();
+    const RobotStatus &rs = s.status;
 
-    ui->logInBt->setText(s.first ? "log out" : "log in");
+    ui->logInBt->setText(s.isLogin ? "log out" : "log in");
     ui->powerOnBt->setText(rs.powered_on ? "power off" : "power on");
     ui->enableBt->setText(rs.enabled ? "disable" : "enable");
 
-    if (s.first) {
+    ui->logInBt->setEnabled(true);
+    if (s.isLogin) {
         ui->powerOnBt->setEnabled(true);
     } else {
         ui->powerOnBt->setEnabled(false);
@@ -137,10 +139,15 @@ void MainWindow::onUpdatedStatus() {
     }
 }
 
+void MainWindow::onBusy() {
+    QMessageBox messageBox(QMessageBox::Warning, "Warning", "操作过于频繁", QMessageBox::Ok);
+    messageBox.exec();
+}
+
 void MainWindow::on_isFakecheckBox_stateChanged(int arg1) {
     if (arg1 == Qt::Checked) {
-        p_rb = &virtualRobot;
+        robotManager.useVirtualRobot();
     } else if (arg1 == Qt::Unchecked) {
-        p_rb = &abstractRobot;
+        robotManager.useRealRobot();
     }
 }

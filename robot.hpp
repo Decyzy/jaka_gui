@@ -15,64 +15,26 @@
 #include <thread>
 #include <vector>
 
-class AbstractRobot : public QObject {
-    Q_OBJECT
-   protected:
-    bool m_isLogin = false;
-    RobotStatus m_robotStatus;
-    std::queue<std::function<void(void)>> m_q;
-    std::thread m_t;
-    std::atomic_bool m_willTerminate;
-    std::mutex m_mutex;
+#define MACOS_TEST
 
-   signals:
-    void loginSignal(bool);
-    void busySignal();
-    void statusUpdatedSignal();
+struct stRobotEntireStatus {
+    bool isLogin       = false;
+    RobotStatus status = {0};
+};
+
+class AbstractRobot {
+   protected:
+    std::mutex m_mutex;
+    double m_radPerSecond = 5 / 180.0 * M_PI;  // rad/s
 
    public:
-    AbstractRobot() {
-        m_robotStatus            = {0};
-        m_robotStatus.powered_on = false;
-        m_robotStatus.enabled    = false;
-        m_willTerminate.exchange(false);
-
-        m_t = std::thread([&]() {
-            while (!m_willTerminate.load()) {
-                std::function<void(void)> func;
-                {
-                    std::lock_guard<std::mutex> lock(m_mutex);
-                    if (!m_q.empty()) {
-                        func = m_q.front();
-                        m_q.pop();
-                    }
-                }
-                if (func) {
-                    func();
-                    emit statusUpdatedSignal();
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
-            std::cout << "AbstractRobot::m_t quit" << std::endl;
-        });
-    }
-
-    ~AbstractRobot() {
-        m_willTerminate.exchange(true);
-        if (m_t.joinable()) m_t.join();
-    }
-
-    void add_async_task(std::function<void(void)>&& func) {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_q.empty())
-            m_q.push(func);
-        else
-            emit busySignal();
-    }
-
-    const std::pair<bool, RobotStatus> get_robot_status() {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        return std::make_pair(m_isLogin, m_robotStatus);
+    /**
+     * @brief set_revolving_speed
+     * @param speed: degree/s
+     */
+    void set_revolving_speed(double degPerSecond) {
+        assert(degPerSecond <= 0);
+        m_radPerSecond = degPerSecond / 180.0 * M_PI;
     }
 
     /**
@@ -80,37 +42,55 @@ class AbstractRobot : public QObject {
      * @param ip  控制器ip地址
      * @return ERR_SUCC 成功 其他失败
      */
-    virtual errno_t login_in(const char* ip) { return ERR_SUCC; }
+    virtual errno_t login_in(const char* ip) {
+        throw "not implement";
+        return ERR_SUCC;
+    }
 
     /**
      * @brief 断开控制器连接
      * @return ERR_SUCC 成功 其他失败
      */
-    virtual errno_t login_out() { return ERR_SUCC; }
+    virtual errno_t login_out() {
+        throw "not implement";
+        return ERR_SUCC;
+    }
 
     /**
      * @param handle  机器人控制句柄
      * @return ERR_SUCC 成功 其他失败
      */
-    virtual errno_t power_on() { return ERR_SUCC; }
+    virtual errno_t power_on() {
+        throw "not implement";
+        return ERR_SUCC;
+    }
 
     /**
      * @brief 关闭机器人电源
      * @return ERR_SUCC 成功 其他失败
      */
-    virtual errno_t power_off() { return ERR_SUCC; }
+    virtual errno_t power_off() {
+        throw "not implement";
+        return ERR_SUCC;
+    }
 
     /**
      * @brief 控制机器人上使能
      * @return ERR_SUCC 成功 其他失败
      */
-    virtual errno_t enable_robot() { return ERR_SUCC; }
+    virtual errno_t enable_robot() {
+        throw "not implement";
+        return ERR_SUCC;
+    }
 
     /**
      * @brief 控制机器人下使能
      * @return ERR_SUCC 成功 其他失败
      */
-    virtual errno_t disable_robot() { return ERR_SUCC; }
+    virtual errno_t disable_robot() {
+        throw "not implement";
+        return ERR_SUCC;
+    }
 
     /**
      * @brief 机器人关节运动
@@ -120,68 +100,179 @@ class AbstractRobot : public QObject {
      * @param speed 机器人关节运动速度，单位：rad/s
      * @return ERR_SUCC 成功 其他失败
      */
-    virtual errno_t joint_move(const JointValue* joint_pos, MoveMode move_mode, BOOL is_block, double speed) {
+    virtual errno_t joint_move(const JointValue* joint_pos, MoveMode move_mode) {
+        throw "not implement";
         return ERR_SUCC;
     }
 
     /**
-     * @brief 获取控制器IP
-     * @param controller_name 控制器名字
-     * @param ip_list
-     * 控制器ip列表，控制器名字为具体值时返回该名字所对应的控制器IP地址，控制器名字为空时，返回网段类内的所有控制器IP地址
-     * @return ERR_SUCC 成功 其他失败
+     * @brief 获取机器人状态数据
      */
-    virtual errno_t get_controller_ip(char* controller_name, char* ip_list) { return ERR_SUCC; }
+    virtual stRobotEntireStatus get_robot_status() {
+        throw "not implement";
+        return stRobotEntireStatus();
+    };
+};
+
+class RealRobot : public AbstractRobot {
+   private:
+#ifndef MACOS_TEST
+    JAKAZuRobot m_robot;
+#else
+    AbstractRobot m_robot;
+#endif
+
+    bool m_isLogin = false;
+
+   public:
+    RealRobot() {}
+
+    errno_t login_in(const char* ip) override {
+        errno_t ans = m_robot.login_in(ip);
+        if (ans == ERR_SUCC) m_isLogin = true;
+        return ans;
+    }
+
+    errno_t login_out() override {
+        errno_t ans = m_robot.login_out();
+        if (ans == ERR_SUCC) m_isLogin = false;
+        return ans;
+    }
+
+    errno_t power_on() override { return m_robot.power_on(); }
+
+    errno_t power_off() override { return m_robot.power_off(); }
+
+    errno_t enable_robot() override { return m_robot.enable_robot(); }
+
+    errno_t disable_robot() override { return m_robot.disable_robot(); }
+
+    errno_t joint_move(const JointValue* joint_pos, MoveMode move_mode) override {
+#ifndef MACOS_TEST
+        return m_robot.joint_move(joint_pos, move_mode, true, m_radPerSecond);
+#else
+        return m_robot.joint_move(joint_pos, move_mode);
+#endif
+    }
+
+    stRobotEntireStatus get_robot_status() override {
+        stRobotEntireStatus s;
+        s.isLogin = m_isLogin;
+#ifndef MACOS_TEST
+        m_robot.get_robot_status(&s.status);
+#endif
+        return s;
+    }
 };
 
 class VirtualRobot : public AbstractRobot {
    private:
-    double moveStepRad = 0.1;
+    double m_stepSecond = 0.1;
+    stRobotEntireStatus m_status;
+
+    static void sleepMilliseconds(long long milliseconds = 1000) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+    }
+
+    //    static bool m_checkAllReach(JointValue& cur, JointValue& target) {
+    //        for (int i = 0; i < 6; ++i) {
+    //            if (fabs(cur.jVal[i] - target.jVal[i]) < 1e-3) return false;
+    //        }
+    //        return true;
+    //    }
 
    public:
-    errno_t login_in(const char* ip) override {
-        add_async_task([&]() { m_isLogin = true; });
+    virtual errno_t login_in(const char* ip) override {
+        sleepMilliseconds();
+        m_status.isLogin = true;
         return ERR_SUCC;
     }
 
-    errno_t login_out() override {
-        add_async_task([&]() { m_isLogin = false; });
+    virtual errno_t login_out() override {
+        sleepMilliseconds();
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_status.isLogin = false;
+        }
         return ERR_SUCC;
     }
 
-    errno_t power_on() override {
-        add_async_task([&]() { m_robotStatus.powered_on = true; });
+    virtual errno_t power_on() override {
+        sleepMilliseconds();
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_status.status.powered_on = true;
+        }
         return ERR_SUCC;
     }
 
-    errno_t power_off() override {
-        add_async_task([&]() { m_robotStatus.powered_on = false; });
+    virtual errno_t power_off() override {
+        sleepMilliseconds();
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_status.status.powered_on = false;
+        }
         return ERR_SUCC;
     }
 
-    errno_t enable_robot() override {
-        add_async_task([&]() { m_robotStatus.enabled = true; });
+    virtual errno_t enable_robot() override {
+        sleepMilliseconds();
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_status.status.enabled = true;
+        }
         return ERR_SUCC;
     }
 
-    errno_t disable_robot() override {
-        add_async_task([&]() { m_robotStatus.enabled = false; });
+    virtual errno_t disable_robot() override {
+        sleepMilliseconds();
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_status.status.enabled = false;
+        }
         return ERR_SUCC;
     }
 
-    errno_t joint_move(const JointValue* joint_pos, MoveMode move_mode, BOOL is_block, double speed) override {
-        add_async_task([&]() {
-            for (int i = 0; i < 6; i++) {
-                if (m_robotStatus.joint_position[i] + moveStepRad > joint_pos->jVal[i]) {
-                    m_robotStatus.joint_position[i] = joint_pos->jVal[i];
-                } else {
-                    m_robotStatus.joint_position[i] += moveStepRad;
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(int(moveStepRad * 1000.0 / speed)));
+    virtual errno_t joint_move(const JointValue* joint_pos, MoveMode move_mode) override {
+        JointValue targetJointValue;
+        double step[6];
+        stRobotEntireStatus s;
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            s = m_status;
+        }
+        if (move_mode == INCR) {
+            for (int i = 0; i < 6; ++i) {
+                targetJointValue.jVal[i] = s.status.joint_position[i] + joint_pos->jVal[i];
+                step[i] = joint_pos->jVal[i] > 0 ? m_radPerSecond * m_stepSecond : -m_radPerSecond * m_stepSecond;
             }
-        });
+        } else if (move_mode == ABS) {
+            for (int i = 0; i < 6; ++i) {
+                targetJointValue.jVal[i] = joint_pos->jVal[i];
+                step[i] = joint_pos->jVal[i] > s.status.joint_position[i] ? m_radPerSecond * m_stepSecond
+                                                                          : -m_radPerSecond * m_stepSecond;
+            }
+        }
+
+        while (true) {
+            int reachCount = 0;
+            std::lock_guard<std::mutex> lock(m_mutex);
+            for (int i = 0; i < 6; ++i) {
+                if ((step[i] > 0 && m_status.status.joint_position[i] + step[i] > targetJointValue.jVal[i]) ||
+                    (step[i] < 0 && m_status.status.joint_position[i] + step[i] < targetJointValue.jVal[i])) {
+                    m_status.status.joint_position[i] += step[i];
+                } else {
+                    m_status.status.joint_position[i] = targetJointValue.jVal[i];
+                    reachCount += 1;
+                }
+            }
+            if (reachCount == 6) break;
+            sleepMilliseconds(m_stepSecond * 1000.0);
+        }
         return ERR_SUCC;
     }
+
+    stRobotEntireStatus get_robot_status() override { return m_status; }
 };
 
 #endif  // ROBOT_HPP

@@ -3,8 +3,9 @@
 
 #include <QDebug>
 #include <QMainWindow>
+#include <QMessageBox>
 
-#include "robot.hpp"
+#include "robot_manager.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -28,11 +29,11 @@ public:
 
    private:
     Ui::MainWindow *ui;
-    AbstractRobot *p_rb = nullptr;
-    VirtualRobot virtualRobot;
-    AbstractRobot abstractRobot;
+    RobotManager robotManager;
 
    public slots:
     void onUpdatedStatus();
+
+    void onBusy();
 };
 #endif // MAINWINDOW_H

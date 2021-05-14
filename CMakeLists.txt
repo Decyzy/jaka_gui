@@ -45,6 +45,7 @@ set(PROJECT_SOURCES
         mainwindow.h
         mainwindow.ui
         robot.hpp
+        robot_manager.hpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
