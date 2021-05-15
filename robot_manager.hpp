@@ -1,10 +1,13 @@
-#ifndef ROBOT_MANAGER_HPP
-#define ROBOT_MANAGER_HPP
+//
+// Created by 杨智宇 on 2021/5/15.
+//
+
+#ifndef JAKA_GUI_ROBOT_MANAGER_HPP
+#define JAKA_GUI_ROBOT_MANAGER_HPP
 
 #include <QObject>
-#include <atomic>
-#include <mutex>
-#include <thread>
+#include <QDebug>
+#include <functional>
 
 #include "robot.hpp"
 
@@ -12,94 +15,112 @@ class RobotManager : public QObject {
     Q_OBJECT
    private:
     AbstractRobot *m_pRobot = nullptr;
-    VirtualRobot m_virtualRobot;
-    RealRobot m_realRobot;
-
-    bool m_isLogin = false;
-    RobotStatus m_robotStatus;
-    std::queue<std::function<void(void)>> m_q;
-    std::thread m_t;
+    VirtualRobot virtualRobot;
+    std::thread m_listenThread;
+    std::thread m_execThread;
     std::atomic_bool m_willTerminate;
     std::mutex m_mutex;
 
-    void m_addAsyncTask(std::function<void(void)> &&func) {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_q.empty())
-            m_q.push(func);
-        else
+    std::function<errno_t(void)> m_asyncTask;
+    std::atomic_bool m_isBusy;
+
+    stEntireRobotStatus m_status;
+
+    void m_init() {
+        qDebug() << "start init";
+        // 暂停之前的
+        m_willTerminate.exchange(true);
+        if (m_listenThread.joinable()) m_listenThread.join();
+        if (m_execThread.joinable()) m_execThread.join();
+        // 初始化
+        m_status.is_login = false;
+        m_willTerminate.exchange(false);
+        m_listenThread = std::thread([&]() {
+            RobotStatus s;
+            while (!m_willTerminate.load()) {
+                if (m_pRobot->is_login()) {
+                    m_pRobot->get_robot_status(&s);
+
+                    std::lock_guard<std::mutex> lock(m_mutex);
+                    memcpy(&m_status.status, &s, sizeof(s));
+                    m_status.is_login = true;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(30));
+            }
+            qDebug() << "listen thread quit";
+        });
+
+        m_execThread = std::thread([&]() {
+            while (!m_willTerminate.load()) {
+                if (m_isBusy.load() && m_asyncTask != nullptr) {
+                    qDebug() << "exec";
+                    errno_t code = m_asyncTask();
+                    m_asyncTask  = nullptr;
+                    m_isBusy.exchange(false);
+                    qDebug() << "exec complete";
+                    //                    emit updateStatusSignal(code);
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+            qDebug() << "exec thread quit";
+        });
+        qDebug() << "init";
+    }
+
+    void m_addAsyncTask(std::function<errno_t(void)> &&func) {
+        if (m_isBusy.load())
             emit busySignal();
+        else {
+            m_asyncTask = func;
+            m_isBusy.exchange(true);
+        }
     }
 
    signals:
-    void statusUpdatedSignal();
     void busySignal();
+    void updateStatusSignal(int);
 
    public:
-    RobotManager() {
+    explicit RobotManager() : m_willTerminate(false), m_status({false, {}}), m_isBusy(false) {
         useVirtualRobot();
-        m_t = std::thread([&]() {
-            while (!m_willTerminate.load()) {
-                std::function<void(void)> func;
-                {
-                    std::lock_guard<std::mutex> lock(m_mutex);
-                    if (!m_q.empty()) {
-                        func = m_q.front();
-                        m_q.pop();
-                    }
-                }
-                if (func) {
-                    func();
-                    emit statusUpdatedSignal();
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
-            std::cout << "AbstractRobot::m_t quit" << std::endl;
-        });
+        m_init();
     }
 
     ~RobotManager() {
         m_willTerminate.exchange(true);
-        if (m_t.joinable()) m_t.join();
-        m_pRobot = nullptr;
+        if (m_listenThread.joinable()) m_listenThread.join();
+        if (m_execThread.joinable()) m_execThread.join();
     }
 
-    void useVirtualRobot() { m_pRobot = &m_virtualRobot; }
-
-    void useRealRobot() { m_pRobot = &m_realRobot; }
-
-    stRobotEntireStatus getStatus() { return m_pRobot->get_robot_status(); }
-
-    virtual errno_t login_in(const char *ip) {
-        char tmp[512];
-        strcpy(tmp, ip);
-        m_addAsyncTask([&, tmp]() { m_pRobot->login_in(tmp); });
-        return ERR_SUCC;
+    void get_entire_robot_status(stEntireRobotStatus *s) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        memcpy(s, &m_status, sizeof(m_status));
     }
 
-    virtual errno_t login_out() {
-        m_addAsyncTask([&]() { m_pRobot->login_out(); });
-        return ERR_SUCC;
+    bool is_login() {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_status.is_login;
     }
 
-    virtual errno_t power_on() {
-        m_addAsyncTask([&]() { m_pRobot->power_on(); });
-        return ERR_SUCC;
+    void login_in(const char *ip) {
+        m_addAsyncTask([&]() { return m_pRobot->login_in(ip); });
     }
 
-    virtual errno_t power_off() {
-        m_addAsyncTask([&]() { return m_pRobot->power_off(); });
-        return ERR_SUCC;
+    void login_out() {
+        m_addAsyncTask([&]() { return m_pRobot->login_out(); });
     }
 
-    virtual errno_t enable_robot() {
-        m_addAsyncTask([&]() { return m_pRobot->enable_robot(); });
-        return ERR_SUCC;
-    }
+    void joint_move(const JointValue *joint_pos, MoveMode move_mode) {
+        JointValue jVal;
+        memcpy(jVal.jVal, joint_pos, sizeof(double) * 6);
+        m_addAsyncTask([&, jVal]() { return m_pRobot->joint_move(&jVal, move_mode); });
+    };
 
-    virtual errno_t disable_robot() {
-        m_addAsyncTask([&]() { return m_pRobot->disable_robot(); });
-        return ERR_SUCC;
-    }
+    void useVirtualRobot() { m_pRobot = &virtualRobot; };
+
+    void useRealRobot(){};
+
+    void set_spin_speed(double degereePerSpeed) { m_pRobot->set_spin_speed(degereePerSpeed); }
 };
 
-#endif // ROBOT_MANAGER_HPP
+#endif //JAKA_GUI_ROBOT_MANAGER_HPP

@@ -27,6 +27,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets REQUIRED)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
 
+#find_package(Boost COMPONENTS system filesystem REQUIRED)
+#include_directories(${Boost_INCLUDE_DIR})
+#link_directories(${Boost_LIBRARY_DIR})
+
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
@@ -61,6 +65,7 @@ else()
     else()
         add_executable(jaka_gui
             ${PROJECT_SOURCES}
+#                ${Boost_LIBRARIES}
         )
     endif()
 endif()

@@ -4,6 +4,7 @@
 #include <QDebug>
 #include <QMainWindow>
 #include <QMessageBox>
+#include <QTimer>
 
 #include "robot_manager.hpp"
 
@@ -27,13 +28,39 @@ public:
 
     void on_enableBt_clicked();
 
+    void on_addBtJ0_clicked();
+
+    void on_addBtJ1_clicked();
+
+    void on_addBtJ2_clicked();
+
+    void on_addBtJ3_clicked();
+
+    void on_addBtJ4_clicked();
+
+    void on_addBtJ5_clicked();
+
+    void on_subBtJ0_clicked();
+
+    void on_subBtJ1_clicked();
+
+    void on_subBtJ2_clicked();
+
+    void on_subBtJ3_clicked();
+
+    void on_subBtJ4_clicked();
+
+    void on_subBtJ5_clicked();
+
    private:
     Ui::MainWindow *ui;
     RobotManager robotManager;
+    QTimer timer;
 
    public slots:
     void onUpdatedStatus();
 
     void onBusy();
 };
+
 #endif // MAINWINDOW_H

@@ -4,8 +4,9 @@
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
-    connect(&robotManager, &RobotManager::statusUpdatedSignal, this, &MainWindow::onUpdatedStatus);
+    connect(&timer, &QTimer::timeout, this, &MainWindow::onUpdatedStatus);
     connect(&robotManager, &RobotManager::busySignal, this, &MainWindow::onBusy);
+    timer.start(100);
 }
 
 MainWindow::~MainWindow() {
@@ -13,8 +14,7 @@ MainWindow::~MainWindow() {
 }
 
 void MainWindow::on_logInBt_clicked() {
-    const auto s = robotManager.getStatus();
-    if (!s.isLogin) {
+    if (!robotManager.is_login()) {
         ui->logInBt->setText("log in...");
         ui->logInBt->setEnabled(false);
         robotManager.login_in(ui->ipLineEdit->text().toStdString().c_str());
@@ -26,43 +26,46 @@ void MainWindow::on_logInBt_clicked() {
 }
 
 void MainWindow::on_powerOnBt_clicked() {
-    const auto s = robotManager.getStatus();
+    stEntireRobotStatus s;
+    robotManager.get_entire_robot_status(&s);
     if (!s.status.powered_on) {
         ui->powerOnBt->setText("power on...");
         ui->powerOnBt->setEnabled(false);
-        robotManager.power_on();
+        //        robotManager.power_on();
     } else {
         ui->powerOnBt->setText("power off...");
         ui->powerOnBt->setEnabled(false);
-        robotManager.power_off();
+        //        robotManager.power_off();
     }
 }
 
 void MainWindow::on_enableBt_clicked() {
-    const auto s = robotManager.getStatus();
+    stEntireRobotStatus s;
+    robotManager.get_entire_robot_status(&s);
     if (!s.status.enabled) {
         ui->enableBt->setText("enable...");
         ui->enableBt->setEnabled(false);
-        robotManager.enable_robot();
+        //        robotManager.enable_robot();
 
     } else {
         ui->enableBt->setText("disable...");
         ui->enableBt->setEnabled(false);
-        robotManager.disable_robot();
+        //        robotManager.disable_robot();
     }
 }
 
 void MainWindow::onUpdatedStatus() {
-    qDebug() << "[slot] on_updated_status";
-    const auto s          = robotManager.getStatus();
+    //    qDebug() << "[slot] on_updated_status";
+    stEntireRobotStatus s;
+    robotManager.get_entire_robot_status(&s);
     const RobotStatus &rs = s.status;
 
-    ui->logInBt->setText(s.isLogin ? "log out" : "log in");
+    ui->logInBt->setText(robotManager.is_login() ? "log out" : "log in");
     ui->powerOnBt->setText(rs.powered_on ? "power off" : "power on");
     ui->enableBt->setText(rs.enabled ? "disable" : "enable");
 
     ui->logInBt->setEnabled(true);
-    if (s.isLogin) {
+    if (s.is_login) {
         ui->powerOnBt->setEnabled(true);
     } else {
         ui->powerOnBt->setEnabled(false);
@@ -101,12 +104,12 @@ void MainWindow::onUpdatedStatus() {
         ui->ry->setText(QString::number(rs.cartesiantran_position[4], 'f', 2));
         ui->rz->setText(QString::number(rs.cartesiantran_position[5], 'f', 2));
 
-        ui->jDeg0->setText(QString::number(rs.joint_position[0], 'f', 2));
-        ui->jDeg1->setText(QString::number(rs.joint_position[1], 'f', 2));
-        ui->jDeg2->setText(QString::number(rs.joint_position[2], 'f', 2));
-        ui->jDeg3->setText(QString::number(rs.joint_position[3], 'f', 2));
-        ui->jDeg4->setText(QString::number(rs.joint_position[4], 'f', 2));
-        ui->jDeg5->setText(QString::number(rs.joint_position[5], 'f', 2));
+        ui->jDeg0->setText(QString::number(rs.joint_position[0] / M_PI * 180.0, 'f', 2));
+        ui->jDeg1->setText(QString::number(rs.joint_position[1] / M_PI * 180.0, 'f', 2));
+        ui->jDeg2->setText(QString::number(rs.joint_position[2] / M_PI * 180.0, 'f', 2));
+        ui->jDeg3->setText(QString::number(rs.joint_position[3] / M_PI * 180.0, 'f', 2));
+        ui->jDeg4->setText(QString::number(rs.joint_position[4] / M_PI * 180.0, 'f', 2));
+        ui->jDeg5->setText(QString::number(rs.joint_position[5] / M_PI * 180.0, 'f', 2));
 
         ui->jV0->setText(QString::number(rs.robot_monitor_data.jointMonitorData[0].instVoltage, 'f', 2));
         ui->jV1->setText(QString::number(rs.robot_monitor_data.jointMonitorData[1].instVoltage, 'f', 2));
@@ -150,4 +153,100 @@ void MainWindow::on_isFakecheckBox_stateChanged(int arg1) {
     } else if (arg1 == Qt::Unchecked) {
         robotManager.useRealRobot();
     }
+}
+
+void MainWindow::on_addBtJ0_clicked() {
+    robotManager.set_spin_speed(ui->velocity->value());
+    JointValue jVal;
+    memset(jVal.jVal, 0, sizeof(double) * 6);
+    jVal.jVal[0] = ui->step->value() / 180.0 * M_PI;
+    robotManager.joint_move(&jVal, INCR);
+}
+
+void MainWindow::on_addBtJ1_clicked() {
+    robotManager.set_spin_speed(ui->velocity->value());
+    JointValue jVal;
+    memset(jVal.jVal, 0, sizeof(double) * 6);
+    jVal.jVal[1] = ui->step->value() / 180.0 * M_PI;
+    robotManager.joint_move(&jVal, INCR);
+}
+
+void MainWindow::on_addBtJ2_clicked() {
+    robotManager.set_spin_speed(ui->velocity->value());
+    JointValue jVal;
+    memset(jVal.jVal, 0, sizeof(double) * 6);
+    jVal.jVal[2] = ui->step->value() / 180.0 * M_PI;
+    robotManager.joint_move(&jVal, INCR);
+}
+
+void MainWindow::on_addBtJ3_clicked() {
+    robotManager.set_spin_speed(ui->velocity->value());
+    JointValue jVal;
+    memset(jVal.jVal, 0, sizeof(double) * 6);
+    jVal.jVal[3] = ui->step->value() / 180.0 * M_PI;
+    robotManager.joint_move(&jVal, INCR);
+}
+
+void MainWindow::on_addBtJ4_clicked() {
+    robotManager.set_spin_speed(ui->velocity->value());
+    JointValue jVal;
+    memset(jVal.jVal, 0, sizeof(double) * 6);
+    jVal.jVal[4] = ui->step->value() / 180.0 * M_PI;
+    robotManager.joint_move(&jVal, INCR);
+}
+
+void MainWindow::on_addBtJ5_clicked() {
+    robotManager.set_spin_speed(ui->velocity->value());
+    JointValue jVal;
+    memset(jVal.jVal, 0, sizeof(double) * 6);
+    jVal.jVal[5] = ui->step->value() / 180.0 * M_PI;
+    robotManager.joint_move(&jVal, INCR);
+}
+
+void MainWindow::on_subBtJ0_clicked() {
+    robotManager.set_spin_speed(ui->velocity->value());
+    JointValue jVal;
+    memset(jVal.jVal, 0, sizeof(double) * 6);
+    jVal.jVal[0] = -ui->step->value() / 180.0 * M_PI;
+    robotManager.joint_move(&jVal, INCR);
+}
+
+void MainWindow::on_subBtJ1_clicked() {
+    robotManager.set_spin_speed(ui->velocity->value());
+    JointValue jVal;
+    memset(jVal.jVal, 0, sizeof(double) * 6);
+    jVal.jVal[1] = -ui->step->value() / 180.0 * M_PI;
+    robotManager.joint_move(&jVal, INCR);
+}
+
+void MainWindow::on_subBtJ2_clicked() {
+    robotManager.set_spin_speed(ui->velocity->value());
+    JointValue jVal;
+    memset(jVal.jVal, 0, sizeof(double) * 6);
+    jVal.jVal[2] = -ui->step->value() / 180.0 * M_PI;
+    robotManager.joint_move(&jVal, INCR);
+}
+
+void MainWindow::on_subBtJ3_clicked() {
+    robotManager.set_spin_speed(ui->velocity->value());
+    JointValue jVal;
+    memset(jVal.jVal, 0, sizeof(double) * 6);
+    jVal.jVal[3] = -ui->step->value() / 180.0 * M_PI;
+    robotManager.joint_move(&jVal, INCR);
+}
+
+void MainWindow::on_subBtJ4_clicked() {
+    robotManager.set_spin_speed(ui->velocity->value());
+    JointValue jVal;
+    memset(jVal.jVal, 0, sizeof(double) * 6);
+    jVal.jVal[4] = -ui->step->value() / 180.0 * M_PI;
+    robotManager.joint_move(&jVal, INCR);
+}
+
+void MainWindow::on_subBtJ5_clicked() {
+    robotManager.set_spin_speed(ui->velocity->value());
+    JointValue jVal;
+    memset(jVal.jVal, 0, sizeof(double) * 6);
+    jVal.jVal[5] = -ui->step->value() / 180.0 * M_PI;
+    robotManager.joint_move(&jVal, INCR);
 }
